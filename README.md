@@ -5,12 +5,14 @@ Custom Home Assistant Lovelace card for the `sensor.euroleague_standings` entity
 ## Features
 
 - EuroLeague standings with team logos
+- Team logo display can be selected in the visual editor: beside the team name, as a subtle row background, or hidden
+- Header can be selected in the visual editor: text, EuroLeague logo, logo + text, or hidden
+- Automatic header text such as `EuroLeague sezonas 2026`, with an optional custom text mode
 - Configurable number of teams to show
 - Favorite team selection in the visual editor
 - Option to always show the favorite team even when it is outside the visible TOP N
 - Playoff positions 1–6 and Play-In positions 7–10 highlighted
-- Round number in the header
-- Optional GP column
+- Optional round and GP column
 - Compact mode
 - Full Home Assistant visual card editor support
 
@@ -33,12 +35,29 @@ count: 10
 favorite_team: ZAL
 always_show_favorite: true
 show_zones: true
-show_logos: true
+team_logo_mode: background
+header_style: both
+header_text_mode: auto
 show_round: true
 show_gp: false
 compact: false
 highlight_favorite: true
 ```
+
+### Team logo modes
+
+- `icon` – logo beside the team name
+- `background` – subtle large team logo in the row background
+- `none` – no team logo
+
+### Header modes
+
+- `text` – header text only
+- `logo` – EuroLeague logo only
+- `both` – logo + text
+- `none` – hide the header title/logo
+
+With `header_text_mode: auto`, the season is read from the sensor and displayed automatically, for example `EuroLeague sezonas 2026`. With `header_text_mode: custom`, use `header_text` for your own label.
 
 ## Required sensor data
 
