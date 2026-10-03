@@ -1,4 +1,5 @@
-const CARD_VERSION = "1.0.0";
+const CARD_VERSION = "1.1.0";
+const EUROLEAGUE_LOGO_URL = "https://raw.githubusercontent.com/braticks/euroleague-standings/main/custom_components/euroleague_standings/brand/icon.png";
 
 const DEFAULT_CONFIG = {
   entity: "sensor.euroleague_standings",
@@ -7,7 +8,10 @@ const DEFAULT_CONFIG = {
   favorite_team: "ZAL",
   always_show_favorite: true,
   show_zones: true,
-  show_logos: true,
+  team_logo_mode: "icon",
+  header_style: "text",
+  header_text_mode: "auto",
+  header_text: "",
   show_round: true,
   show_gp: false,
   compact: false,
@@ -48,7 +52,11 @@ class EuroleagueStandingsCard extends HTMLElement {
 
   setConfig(config) {
     if (!config) throw new Error("Kortos konfigūracija nepateikta");
-    this._config = { ...DEFAULT_CONFIG, ...config };
+    const merged = { ...DEFAULT_CONFIG, ...config };
+    if (!config.team_logo_mode && Object.prototype.hasOwnProperty.call(config, "show_logos")) {
+      merged.team_logo_mode = config.show_logos === false ? "none" : "icon";
+    }
+    this._config = merged;
     this._render();
   }
 
@@ -97,6 +105,11 @@ class EuroleagueStandingsCard extends HTMLElement {
     return { top, favorite: appendFavorite ? favorite : null };
   }
 
+  _teamLogoMode() {
+    const mode = String(this._config?.team_logo_mode || "icon").toLowerCase();
+    return ["icon", "background", "none"].includes(mode) ? mode : "icon";
+  }
+
   _row(team, options = {}) {
     const cfg = this._config;
     const favoriteCode = String(cfg.favorite_team ?? "").toUpperCase();
@@ -105,18 +118,24 @@ class EuroleagueStandingsCard extends HTMLElement {
     const compactClass = cfg.compact ? " compact" : "";
     const favoriteClass = isFavorite && cfg.highlight_favorite !== false ? " favorite" : "";
     const appendedClass = options.appended ? " appended" : "";
+    const logoMode = this._teamLogoMode();
 
-    const logo = cfg.show_logos !== false
+    const iconLogo = logoMode === "icon"
       ? `<div class="logo-wrap">${team.logo
           ? `<img class="logo" src="${escapeHtml(team.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"><span class="logo-fallback">${escapeHtml(team.code.slice(0, 3))}</span>`
           : `<span class="logo-fallback" style="display:grid">${escapeHtml(team.code.slice(0, 3))}</span>`}
          </div>`
       : "";
 
+    const backgroundLogo = logoMode === "background" && team.logo
+      ? `<img class="row-bg-logo" src="${escapeHtml(team.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';">`
+      : "";
+
     return `
       <div class="team-row zone-${cfg.show_zones === false ? "none" : zone}${compactClass}${favoriteClass}${appendedClass}">
+        ${backgroundLogo}
         <div class="rank">${team.position}</div>
-        ${logo}
+        ${iconLogo}
         <div class="team-name" title="${escapeHtml(team.name)}">
           <span>${escapeHtml(team.name)}</span>
           ${isFavorite && cfg.highlight_favorite !== false ? '<span class="favorite-star" title="Mėgstama komanda">★</span>' : ""}
@@ -141,6 +160,26 @@ class EuroleagueStandingsCard extends HTMLElement {
       html += this._row(team);
     }
     return html;
+  }
+
+  _headerText(season) {
+    const cfg = this._config;
+    if (cfg.header_text_mode === "custom") {
+      return String(cfg.header_text || cfg.title || "EuroLeague");
+    }
+    const base = String(cfg.title || "EuroLeague");
+    return season ? `${base} sezonas ${season}` : base;
+  }
+
+  _headerContent(season) {
+    const style = String(this._config.header_style || "text").toLowerCase();
+    const text = escapeHtml(this._headerText(season));
+    const logo = `<img class="header-logo" src="${EUROLEAGUE_LOGO_URL}" alt="EuroLeague" loading="lazy" referrerpolicy="no-referrer">`;
+
+    if (style === "none") return "";
+    if (style === "logo") return `<div class="header-main logo-only">${logo}</div>`;
+    if (style === "both") return `<div class="header-main">${logo}<div class="title">${text}</div></div>`;
+    return `<div class="header-main"><div class="title">${text}</div></div>`;
   }
 
   _render() {
@@ -170,10 +209,13 @@ class EuroleagueStandingsCard extends HTMLElement {
     const headerRound = cfg.show_round !== false && round
       ? `<div class="round">${escapeHtml(roundName || `${round} turas`)}</div>`
       : "";
+    const headerContent = this._headerContent(season);
+    const showHeader = Boolean(headerContent || headerRound);
 
-    const gridColumns = cfg.show_logos === false
-      ? `34px minmax(0,1fr) ${cfg.show_gp === true ? "34px " : ""}34px 34px`
-      : `34px 38px minmax(0,1fr) ${cfg.show_gp === true ? "34px " : ""}34px 34px`;
+    const logoMode = this._teamLogoMode();
+    const gridColumns = logoMode === "icon"
+      ? `34px 38px minmax(0,1fr) ${cfg.show_gp === true ? "34px " : ""}34px 34px`
+      : `34px minmax(0,1fr) ${cfg.show_gp === true ? "34px " : ""}34px 34px`;
 
     const favoriteBlock = favorite
       ? `<div class="favorite-divider"><span>MĖGSTAMA KOMANDA</span></div>${this._row(favorite, { appended: true })}`
@@ -182,17 +224,11 @@ class EuroleagueStandingsCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${EuroleagueStandingsCard.styles}</style>
       <ha-card style="--el-grid:${gridColumns}">
-        <div class="card-head">
-          <div>
-            <div class="title">${escapeHtml(cfg.title || "EuroLeague")}</div>
-            ${season ? `<div class="season">SEZONAS ${escapeHtml(season)}</div>` : ""}
-          </div>
-          ${headerRound}
-        </div>
+        ${showHeader ? `<div class="card-head">${headerContent}<div class="head-right">${headerRound}</div></div>` : ""}
 
         <div class="table-head">
           <div>#</div>
-          ${cfg.show_logos !== false ? "<div></div>" : ""}
+          ${logoMode === "icon" ? "<div></div>" : ""}
           <div>KOMANDA</div>
           ${cfg.show_gp === true ? '<div class="center">GP</div>' : ""}
           <div class="center">W</div>
@@ -213,13 +249,16 @@ class EuroleagueStandingsCard extends HTMLElement {
     return `
       :host{display:block;font-family:var(--primary-font-family,Arial,sans-serif)}
       ha-card{overflow:hidden;padding:0;background:var(--ha-card-background,var(--card-background-color,#111));color:var(--primary-text-color,#fff)}
-      .card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 16px 12px;border-bottom:1px solid var(--divider-color,rgba(255,255,255,.12))}
-      .title{font-size:20px;line-height:1.1;font-weight:800;letter-spacing:.02em}
-      .season{margin-top:4px;font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--secondary-text-color,#aaa)}
-      .round{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color,#bbb);white-space:nowrap}
+      .card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 16px 11px;border-bottom:1px solid var(--divider-color,rgba(255,255,255,.12))}
+      .header-main{min-width:0;display:flex;align-items:center;gap:10px}
+      .header-main.logo-only{min-height:34px}
+      .header-logo{display:block;width:36px;height:36px;object-fit:contain;flex:0 0 auto}
+      .title{min-width:0;font-size:18px;line-height:1.15;font-weight:800;letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .head-right{margin-left:auto;display:flex;align-items:center}
+      .round{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color,#bbb);white-space:nowrap}
       .table-head,.team-row{display:grid;grid-template-columns:var(--el-grid);align-items:center;column-gap:6px}
       .table-head{min-height:34px;padding:0 12px;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--secondary-text-color,#aaa);background:rgba(0,0,0,.08)}
-      .team-row{position:relative;min-height:48px;margin:0 8px 4px;padding:0 8px 0 5px;border-radius:8px;background:rgba(127,127,127,.08);border-left:4px solid transparent;box-sizing:border-box}
+      .team-row{position:relative;isolation:isolate;overflow:hidden;min-height:48px;margin:0 8px 4px;padding:0 8px 0 5px;border-radius:8px;background:rgba(127,127,127,.08);border-left:4px solid transparent;box-sizing:border-box}
       .team-row.compact{min-height:40px;margin-bottom:3px}
       .team-row.zone-playoff{border-left-color:#24a148;background:linear-gradient(90deg,rgba(36,161,72,.12),rgba(127,127,127,.06) 34%)}
       .team-row.zone-playin{border-left-color:#ff8a00;background:linear-gradient(90deg,rgba(255,138,0,.12),rgba(127,127,127,.06) 34%)}
@@ -227,6 +266,8 @@ class EuroleagueStandingsCard extends HTMLElement {
       .team-row.zone-none{border-left-color:transparent}
       .team-row.favorite{outline:1px solid rgba(36,161,72,.58);box-shadow:inset 0 0 0 1px rgba(36,161,72,.10)}
       .team-row.appended{margin-bottom:8px}
+      .row-bg-logo{position:absolute;z-index:-1;right:10px;top:50%;transform:translateY(-50%);width:92px;height:92px;object-fit:contain;opacity:.11;filter:saturate(.85);pointer-events:none}
+      .rank,.logo-wrap,.team-name,.stat{position:relative;z-index:1}
       .rank{font-size:13px;font-weight:800;text-align:center;color:var(--secondary-text-color,#c8c8c8)}
       .logo-wrap{width:34px;height:34px;display:grid;place-items:center}
       .logo{display:block;max-width:30px;max-height:30px;width:auto;height:auto;object-fit:contain}
@@ -251,7 +292,7 @@ class EuroleagueStandingsCard extends HTMLElement {
       .dot.playoff{background:#24a148}.dot.playin{background:#ff8a00}
       .empty{padding:20px;color:var(--secondary-text-color,#999);text-align:center}
       @media(max-width:360px){
-        .card-head{padding-left:12px;padding-right:12px}.title{font-size:18px}.team-row{margin-left:6px;margin-right:6px}.team-name{font-size:12px}.legend{gap:9px}
+        .card-head{padding-left:12px;padding-right:12px}.title{font-size:16px}.team-row{margin-left:6px;margin-right:6px}.team-name{font-size:12px}.legend{gap:9px}.header-logo{width:32px;height:32px}.row-bg-logo{width:78px;height:78px}
       }
     `;
   }
@@ -263,12 +304,16 @@ class EuroleagueStandingsCardEditor extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this.shadowRoot.addEventListener("change", (event) => this._changed(event));
     this.shadowRoot.addEventListener("input", (event) => {
-      if (event.target?.dataset?.key === "title") this._changed(event);
+      if (["title", "header_text"].includes(event.target?.dataset?.key)) this._changed(event);
     });
   }
 
   setConfig(config) {
-    this._config = { ...DEFAULT_CONFIG, ...config };
+    const merged = { ...DEFAULT_CONFIG, ...config };
+    if (!config?.team_logo_mode && Object.prototype.hasOwnProperty.call(config || {}, "show_logos")) {
+      merged.team_logo_mode = config.show_logos === false ? "none" : "icon";
+    }
+    this._config = merged;
     this._render();
   }
 
@@ -297,14 +342,13 @@ class EuroleagueStandingsCardEditor extends HTMLElement {
     const key = input?.dataset?.key;
     const allowed = new Set([
       "entity", "title", "count", "favorite_team", "always_show_favorite",
-      "show_zones", "show_logos", "show_round", "show_gp", "compact", "highlight_favorite",
+      "show_zones", "team_logo_mode", "header_style", "header_text_mode", "header_text",
+      "show_round", "show_gp", "compact", "highlight_favorite",
     ]);
     if (!allowed.has(key)) return;
 
     let value = input.type === "checkbox" ? input.checked : input.value;
-    if (key === "count") {
-      value = Math.max(1, Math.min(20, asInt(value, 10)));
-    }
+    if (key === "count") value = Math.max(1, Math.min(20, asInt(value, 10)));
 
     this._config = { ...this._config, [key]: value };
     this.dispatchEvent(new CustomEvent("config-changed", {
@@ -313,11 +357,15 @@ class EuroleagueStandingsCardEditor extends HTMLElement {
       composed: true,
     }));
 
-    if (key === "entity") this._render();
+    if (["entity", "header_style", "header_text_mode", "team_logo_mode"].includes(key)) this._render();
   }
 
   _checkbox(key, label, checked) {
     return `<label class="check"><input data-key="${key}" type="checkbox" ${checked ? "checked" : ""}><span>${label}</span></label>`;
+  }
+
+  _select(key, label, options, value) {
+    return `<label class="field">${label}<select data-key="${key}">${options.map(([id, name]) => `<option value="${id}" ${id === value ? "selected" : ""}>${name}</option>`).join("")}</select></label>`;
   }
 
   _render() {
@@ -331,6 +379,7 @@ class EuroleagueStandingsCardEditor extends HTMLElement {
       '<option value="">– Nepasirinkta –</option>',
       ...teams.map((team) => `<option value="${escapeHtml(team.code)}" ${team.code === String(cfg.favorite_team || "").toUpperCase() ? "selected" : ""}>${team.position}. ${escapeHtml(team.name)}</option>`),
     ].join("");
+    const headerHasText = ["text", "both"].includes(cfg.header_style || "text");
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -350,7 +399,7 @@ class EuroleagueStandingsCardEditor extends HTMLElement {
         </label>
         <datalist id="el-sensors">${sensors.map((id) => `<option value="${escapeHtml(id)}"></option>`).join("")}</datalist>
 
-        <label class="field">Pavadinimas
+        <label class="field">Pavadinimas automatinėje antraštėje
           <input data-key="title" value="${escapeHtml(cfg.title || "EuroLeague")}">
         </label>
 
@@ -363,6 +412,19 @@ class EuroleagueStandingsCardEditor extends HTMLElement {
         </label>
 
         <div class="section">
+          <div class="section-title">ANTRAŠTĖ</div>
+          ${this._select("header_style", "Ką rodyti viršuje", [["text","Tekstą"],["logo","EuroLeague logo"],["both","Logo + tekstą"],["none","Nieko"]], cfg.header_style || "text")}
+          ${headerHasText ? this._select("header_text_mode", "Teksto tipas", [["auto","Automatinis: EuroLeague sezonas 2026"],["custom","Mano tekstas"]], cfg.header_text_mode || "auto") : ""}
+          ${headerHasText && cfg.header_text_mode === "custom" ? `<label class="field">Antraštės tekstas<input data-key="header_text" value="${escapeHtml(cfg.header_text || "")}" placeholder="EuroLeague 2026/27"></label>` : ""}
+          ${this._checkbox("show_round", "Rodyti turą", cfg.show_round !== false)}
+        </div>
+
+        <div class="section">
+          <div class="section-title">KOMANDŲ LOGOTIPAI</div>
+          ${this._select("team_logo_mode", "Logotipo rodymas", [["icon","Prie komandos pavadinimo"],["background","Kaip komandos eilutės foną"],["none","Nerodyti"]], cfg.team_logo_mode || "icon")}
+        </div>
+
+        <div class="section">
           <div class="section-title">MĖGSTAMA KOMANDA</div>
           ${this._checkbox("always_show_favorite", "Visada rodyti mėgstamą komandą, jei ji nepatenka į TOP N", cfg.always_show_favorite !== false)}
           ${this._checkbox("highlight_favorite", "Išryškinti mėgstamą komandą", cfg.highlight_favorite !== false)}
@@ -371,13 +433,11 @@ class EuroleagueStandingsCardEditor extends HTMLElement {
         <div class="section">
           <div class="section-title">IŠVAIZDA</div>
           ${this._checkbox("show_zones", "Rodyti Playoff / Play-In zonas", cfg.show_zones !== false)}
-          ${this._checkbox("show_logos", "Rodyti komandų logotipus", cfg.show_logos !== false)}
-          ${this._checkbox("show_round", "Rodyti turą", cfg.show_round !== false)}
           ${this._checkbox("show_gp", "Rodyti GP stulpelį", cfg.show_gp === true)}
           ${this._checkbox("compact", "Kompaktiškas režimas", cfg.compact === true)}
         </div>
 
-        <small>Komandų sąrašas mėgstamos komandos pasirinkime užsipildo iš pasirinkto sensoriaus atributų.</small>
+        <small>Visi pagrindiniai antraštės ir komandų logotipų variantai pasirenkami vizualiame kortos redaktoriuje.</small>
       </div>`;
   }
 }
@@ -395,7 +455,7 @@ if (!window.customCards.some((card) => card.type === "euroleague-standings-card"
   window.customCards.push({
     type: "euroleague-standings-card",
     name: "EuroLeague Standings Card",
-    description: "EuroLeague turnyrinė lentelė su logotipais, Playoff / Play-In zonomis ir mėgstama komanda",
+    description: "EuroLeague turnyrinė lentelė su pasirenkamais logotipais, antrašte ir mėgstama komanda",
     preview: true,
   });
 }
