@@ -5,16 +5,17 @@ Custom Home Assistant Lovelace card for the `sensor.euroleague_standings` entity
 ## Features
 
 - EuroLeague standings with team logos
-- Team logo display can be selected in the visual editor: beside the team name, as a subtle row background, or hidden
-- Header can be selected in the visual editor: text, EuroLeague logo, logo + text, or hidden
-- Automatic header text such as `EuroLeague sezonas 2026`, with an optional custom text mode
+- Team logo style: icon, subtle row background, or hidden
 - Configurable number of teams to show
 - Favorite team selection in the visual editor
 - Option to always show the favorite team even when it is outside the visible TOP N
 - Playoff positions 1–6 and Play-In positions 7–10 highlighted
-- Optional round and GP column
+- Selectable header: text, full EuroLeague logo, logo + text, or hidden
+- Automatic header text such as `EuroLeague Season 2026` or custom text
+- Optional round, GP and `+/-` point differential columns
 - Compact mode
 - Full Home Assistant visual card editor support
+- English user interface
 
 ## Installation with HACS
 
@@ -30,7 +31,6 @@ The card should then appear in the Home Assistant card picker as **EuroLeague St
 ```yaml
 type: custom:euroleague-standings-card
 entity: sensor.euroleague_standings
-title: EuroLeague
 count: 10
 favorite_team: ZAL
 always_show_favorite: true
@@ -40,24 +40,10 @@ header_style: both
 header_text_mode: auto
 show_round: true
 show_gp: false
+show_diff: true
 compact: false
 highlight_favorite: true
 ```
-
-### Team logo modes
-
-- `icon` – logo beside the team name
-- `background` – subtle large team logo in the row background
-- `none` – no team logo
-
-### Header modes
-
-- `text` – header text only
-- `logo` – EuroLeague logo only
-- `both` – logo + text
-- `none` – hide the header title/logo
-
-With `header_text_mode: auto`, the season is read from the sensor and displayed automatically, for example `EuroLeague sezonas 2026`. With `header_text_mode: custom`, use `header_text` for your own label.
 
 ## Required sensor data
 
@@ -71,6 +57,9 @@ The card expects a `teams` attribute containing entries such as:
   games_played: 3
   wins: 1
   losses: 2
+  points_for: 246
+  points_against: 239
+  points_diff: 7
 ```
 
-This project is not affiliated with EuroLeague Basketball. Team names and logos belong to their respective owners.
+This project is not affiliated with EuroLeague Basketball. EuroLeague and team names/logos belong to their respective owners.
