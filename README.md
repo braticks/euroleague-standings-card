@@ -1,18 +1,37 @@
-# EuroLeague Standings Card — deprecated standalone package
+# EuroLeague Standings Card — deprecated
 
-> **Deprecated:** starting with **EuroLeague Standings integration v1.2.0**, this card is bundled directly with the integration and is registered automatically in Home Assistant.
+> [!IMPORTANT]
+> **This standalone card repository is no longer maintained.**
+>
+> The card is now bundled directly with the **EuroLeague Standings** Home Assistant integration. New installations only need the combined integration:
+>
+> **https://github.com/braticks/euroleague-standings**
 
-Use the combined integration instead:
+## Moved to the combined integration
 
-`https://github.com/braticks/euroleague-standings`
+Starting with **EuroLeague Standings v1.2.0**, one HACS installation provides both:
 
-## Migration
+- `sensor.euroleague_standings`
+- `custom:euroleague-standings-card`
+- the visual card editor
+- automatic Lovelace resource registration in storage mode
 
-1. Update **EuroLeague Standings** integration to v1.2.0 or newer.
+Do **not** install this repository for new setups.
+
+## Migration from the old standalone card
+
+1. Update the **EuroLeague Standings** integration to v1.2.0 or newer.
 2. Restart Home Assistant.
-3. Verify `custom:euroleague-standings-card` still works.
-4. Remove this separate **Dashboard** repository from HACS.
+3. Verify that `custom:euroleague-standings-card` still works.
+4. Remove **EuroLeague Standings Card** from HACS Dashboard / Frontend.
 
-The card type and its configuration stay the same, so existing dashboard YAML does not need to be changed.
+The card type and configuration stay the same, so existing dashboard YAML does not need to be changed.
 
-This repository is kept only for existing installations and history. New installations should use the combined integration.
+## Current project
+
+All future development, releases and issue tracking are in:
+
+**braticks/euroleague-standings**  
+https://github.com/braticks/euroleague-standings
+
+This repository is kept only for migration, old links and project history.
